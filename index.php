@@ -26,6 +26,8 @@ $cols = 7;
 
       <button id="resetButton" type="button">Recommencer</button>
     </section>
+    
+    <p id="playersCount" class="connection-status">Connexion au serveur…</p>
 
     <section class="board-wrap" aria-label="Plateau de Puissance 4">
       <div
@@ -53,23 +55,32 @@ $cols = 7;
   <script src="http://localhost:3000/socket.io/socket.io.js"></script>
 
   <script>
-    const socket = io("http://localhost:3000");
+  const socket = io("http://localhost:8000");
 
-    socket.on("move", (col) => playColumn(col, true));
-    socket.on("reset", () => resetGame(true));
+  socket.on("move", (col) => playColumn(col, true));
+  socket.on("reset", () => resetGame(true));
 
-    socket.on("connect", () => {
-      console.log("Connecté au serveur multijoueur !");
-      console.log("Mon identifiant :", socket.id);
-    });
+  socket.on("playersCount", (count) => {
+    const status = document.querySelector("#playersCount");
 
-    socket.on("connect_error", (error) => {
-      console.error(
-        "Erreur de connexion Socket.IO :",
-        error.message
-      );
-    });
-  </script>
+    if (!status) return;
+
+    if (count < 2) {
+      status.textContent = `En attente d’un autre joueur (${count}/2)`;
+    } else {
+      status.textContent = `${count} joueurs connectés`;
+    }
+  });
+
+  socket.on("connect", () => {
+    console.log("Connecté au serveur multijoueur !");
+    console.log("Mon identifiant :", socket.id);
+  });
+
+  socket.on("connect_error", (error) => {
+    console.error("Erreur de connexion Socket.IO :", error.message);
+  });
+</script>
 
   <!-- Code du jeu existant -->
   <script src="script.js"></script>
