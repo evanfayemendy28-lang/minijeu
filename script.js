@@ -6,8 +6,8 @@ const COLS = Number(boardElement.dataset.cols);
 const EMPTY = "";
 const PLAYERS = ["red", "yellow"];
 const PLAYER_NAMES = {
-  red: "Joueur rouge",
-  yellow: "Joueur jaune"
+  red: "joueur rouge",
+  yellow: "joueur jaune"
 };
 
 const lobbyView = document.querySelector("#lobbyView");
@@ -28,6 +28,7 @@ const leaveRoomButton = document.querySelector("#leaveRoomButton");
 
 let board = [];
 let currentPlayer = PLAYERS[0];
+let myColor = null;
 let gameOver = false;
 let currentRoomId = null;
 let currentRoomName = "";
@@ -37,7 +38,7 @@ let gameReady = false;
 function setupCells() {
   document.querySelectorAll(".cell").forEach((cell) => {
     const col = Number(cell.dataset.col);
-    cell.addEventListener("click", () => playColumn(col));
+    cell.addEventListener("click", () => requestMove(col));
   });
 }
 
@@ -97,6 +98,8 @@ function enterRoom(room) {
   currentRoomId = room.id;
   currentRoomName = room.name;
   roomPlayerCount = room.players;
+  myColor = room.playerColor || null;
+  currentPlayer = room.currentTurn || PLAYERS[0];
   gameReady = roomPlayerCount >= 2;
 
   roomTitleElement.textContent = currentRoomName;
@@ -116,11 +119,25 @@ function updateRoomPlayers(count) {
     playersCountElement.textContent = "En attente d’un autre joueur (" + count + "/2)";
     setStatus("En attente d’un adversaire", currentPlayer);
   } else {
-    playersCountElement.textContent = "2 joueurs connectés · La partie peut commencer";
-    setStatus(PLAYER_NAMES[currentPlayer], currentPlayer);
+    const colorName = PLAYER_NAMES[myColor] || "couleur inconnue";
+    playersCountElement.textContent = "2 joueurs connectés · tu es " + colorName;
+    updateTurnStatus();
   }
 
   render();
+}
+
+function updateTurnStatus() {
+  if (!gameReady || !myColor) {
+    setStatus("En attente d’un adversaire", currentPlayer);
+    return;
+  }
+
+  const message = currentPlayer === myColor
+    ? "À toi — " + PLAYER_NAMES[myColor]
+    : "Au tour du " + PLAYER_NAMES[currentPlayer];
+
+  setStatus(message, currentPlayer);
 }
 
 function leaveRoom() {
@@ -128,6 +145,7 @@ function leaveRoom() {
   currentRoomId = null;
   currentRoomName = "";
   roomPlayerCount = 0;
+  myColor = null;
   gameReady = false;
   resetGame(true);
   gameView.hidden = true;
@@ -137,56 +155,50 @@ function leaveRoom() {
 }
 
 function resetGame(fromServer = false) {
+  if (!fromServer) {
+    if (currentRoomId && gameReady) {
+      socket.emit("reset");
+    }
+    return;
+  }
+
   board = Array.from({ length: ROWS }, () => Array(COLS).fill(EMPTY));
   currentPlayer = PLAYERS[0];
   gameOver = false;
   render();
-  setStatus(
-    gameReady ? PLAYER_NAMES[currentPlayer] : "En attente d’un adversaire",
-    currentPlayer
-  );
-
-  if (!fromServer && currentRoomId && gameReady) {
-    socket.emit("reset");
-  }
+  updateTurnStatus();
 }
 
-function playColumn(col, fromServer = false) {
-  if (!gameReady || gameOver) {
-    return;
-  }
+function requestMove(col) {
+  if (!gameReady || gameOver || currentPlayer !== myColor) return;
+  if (findOpenRow(col) === -1) return;
 
+  socket.emit("move", col);
+}
+
+function applyServerMove(data) {
+  if (!currentRoomId || !gameReady || gameOver) return;
+
+  const col = Number(data.col);
   const row = findOpenRow(col);
+  if (row === -1) return;
 
-  if (row === -1) {
+  board[row][col] = data.player;
+  currentPlayer = data.nextTurn;
+  gameOver = data.gameOver;
+
+  render(data.winningCells || []);
+
+  if (data.gameOver) {
+    if (data.isDraw) {
+      setStatus("Égalité !", data.player);
+    } else {
+      setStatus(PLAYER_NAMES[data.player] + " gagne !", data.player);
+    }
     return;
   }
 
-  board[row][col] = currentPlayer;
-
-  if (!fromServer) {
-    socket.emit("move", col);
-  }
-
-  const winningCells = getWinningCells(row, col, currentPlayer);
-
-  if (winningCells.length > 0) {
-    gameOver = true;
-    render(winningCells);
-    setStatus(PLAYER_NAMES[currentPlayer] + " gagne !", currentPlayer);
-    return;
-  }
-
-  if (isBoardFull()) {
-    gameOver = true;
-    render();
-    setStatus("Égalité !", currentPlayer);
-    return;
-  }
-
-  currentPlayer = currentPlayer === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
-  render();
-  setStatus(PLAYER_NAMES[currentPlayer], currentPlayer);
+  updateTurnStatus();
 }
 
 function findOpenRow(col) {
@@ -213,9 +225,7 @@ function getWinningCells(row, col, player) {
       ...collectCells(row, col, player, -direction.row, -direction.col).slice(1)
     ];
 
-    if (cells.length >= 4) {
-      return cells;
-    }
+    if (cells.length >= 4) return cells;
   }
 
   return [];
@@ -255,7 +265,11 @@ function render(winningCells = []) {
     const winningCell = winMap.has(row + "-" + col);
 
     cell.className = "cell" + (player ? " " + player : "") + (winningCell ? " win" : "");
-    cell.disabled = !gameReady || gameOver || board[0][col] !== EMPTY;
+    cell.disabled =
+      !gameReady ||
+      gameOver ||
+      currentPlayer !== myColor ||
+      board[0][col] !== EMPTY;
   });
 }
 
@@ -306,17 +320,20 @@ socket.on("connect_error", (error) => {
 
 socket.on("roomsList", renderRooms);
 
+socket.on("playerRole", (color) => {
+  myColor = color;
+  if (gameView && !gameView.hidden) {
+    updateRoomPlayers(roomPlayerCount);
+  }
+});
+
 socket.on("roomPlayers", (data) => {
   if (data.roomId === currentRoomId) {
     updateRoomPlayers(data.players);
   }
 });
 
-socket.on("move", (col) => {
-  if (currentRoomId) {
-    playColumn(Number(col), true);
-  }
-});
+socket.on("move", applyServerMove);
 
 socket.on("reset", () => {
   if (currentRoomId) {
