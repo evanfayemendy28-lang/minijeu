@@ -1,0 +1,20 @@
+{
+  "name": "puissance-4-php",
+  "version": "1.0.0",
+  "description": "Un Puissance 4 basique en PHP, HTML, CSS et JavaScript.",
+  "main": "index.php",
+  "scripts": {
+    "start": "php -S localhost:8000",
+    "check:php": "php -l index.php"
+  },
+  "keywords": [
+    "puissance-4",
+    "php",
+    "jeu"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "socket.io": "^4.8.4"
+  }
+}
