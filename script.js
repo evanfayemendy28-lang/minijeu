@@ -23,15 +23,19 @@ function setupCells() {
   });
 }
 
-function resetGame() {
+function resetGame(fromServer = false) {
   board = Array.from({ length: ROWS }, () => Array(COLS).fill(EMPTY));
   currentPlayer = PLAYERS[0];
   gameOver = false;
   render();
   setStatus(`${PLAYER_NAMES[currentPlayer]}`, currentPlayer);
+
+  if (!fromServer) {
+    socket.emit("reset");
+  }
 }
 
-function playColumn(col) {
+function playColumn(col, fromServer = false) {
   if (gameOver) {
     return;
   }
@@ -43,6 +47,11 @@ function playColumn(col) {
   }
 
   board[row][col] = currentPlayer;
+
+  if (!fromServer) {
+    socket.emit("move", col);
+  }
+
   const winningCells = getWinningCells(row, col, currentPlayer);
 
   if (winningCells.length > 0) {

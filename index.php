@@ -10,6 +10,7 @@ $cols = 7;
   <title>Puissance 4</title>
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
   <main class="game">
     <section class="topbar" aria-label="Informations de partie">
@@ -17,15 +18,22 @@ $cols = 7;
         <p class="label">Tour actuel</p>
         <h1>Puissance 4</h1>
       </div>
+
       <div class="turn">
         <span id="turnChip" class="chip red"></span>
         <span id="status">Joueur rouge</span>
       </div>
+
       <button id="resetButton" type="button">Recommencer</button>
     </section>
 
     <section class="board-wrap" aria-label="Plateau de Puissance 4">
-      <div id="board" class="board" data-rows="<?= $rows ?>" data-cols="<?= $cols ?>">
+      <div
+        id="board"
+        class="board"
+        data-rows="<?= $rows ?>"
+        data-cols="<?= $cols ?>"
+      >
         <?php for ($row = 0; $row < $rows; $row += 1): ?>
           <?php for ($col = 0; $col < $cols; $col += 1): ?>
             <button
@@ -41,6 +49,29 @@ $cols = 7;
     </section>
   </main>
 
+  <!-- Connexion au serveur Socket.IO -->
+  <script src="http://localhost:3000/socket.io/socket.io.js"></script>
+
+  <script>
+    const socket = io("http://localhost:3000");
+
+    socket.on("move", (col) => playColumn(col, true));
+    socket.on("reset", () => resetGame(true));
+
+    socket.on("connect", () => {
+      console.log("Connecté au serveur multijoueur !");
+      console.log("Mon identifiant :", socket.id);
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error(
+        "Erreur de connexion Socket.IO :",
+        error.message
+      );
+    });
+  </script>
+
+  <!-- Code du jeu existant -->
   <script src="script.js"></script>
 </body>
 </html>

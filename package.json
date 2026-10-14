@@ -1,19 +1,15 @@
 {
-  "name": "puissance-4-php",
+  "name": "minijeu",
   "version": "1.0.0",
-  "description": "Un Puissance 4 basique en PHP, HTML, CSS et JavaScript.",
-  "main": "index.php",
+  "description": "",
+  "main": "index.js",
   "scripts": {
-    "start": "php -S localhost:8000",
-    "check:php": "php -l index.php"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [
-    "puissance-4",
-    "php",
-    "jeu"
-  ],
+  "keywords": [],
   "author": "",
-  "license": "MIT",
+  "license": "ISC",
+  "type": "commonjs",
   "dependencies": {
     "socket.io": "^4.8.4"
   }
